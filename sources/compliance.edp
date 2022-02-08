@@ -1,0 +1,48 @@
+/* Calculation of the compliance of the input structure */
+include "./sources/inout.idp"
+include "./sources/macros.idp"
+load "medit"
+
+/* Get mesh and sol names, and global parameters */
+string MESH       = getsParam(EXCHFILE,"MeshName");
+string PHIR       = getsParam(EXCHFILE,"PhiRName");
+string SOL        = getsParam(EXCHFILE,"SolName");
+string GRAD       = getsParam(EXCHFILE,"CpGradName");
+int refneu        = getiParam(EXCHFILE,"Neumann");
+
+/* Loading mesh */
+mesh Th = readmesh(MESH);
+
+/* Finite element spaces and functions */
+fespace Vh(Th,P1);
+fespace Vh0(Th,P0);
+Vh ux,uy,hr,g,v;
+Vh0 g0;
+
+/* Other parameters */
+real gx  = 0.0;
+real gy  = -1.0;
+real cply;
+
+/* Read (regularized) density and solution */
+loadsol(PHIR,hr[]);
+loadvec2(SOL,ux[],uy[]);
+
+/* Regularization for the gradient */
+problem sdreg(g,v) = psreg(g,v)
+                      - int2d(Th)(g0*v);
+
+/* Calculate compliance */
+cply = int2d(Th)(zetamu(heav(hr))*(2.0*dx(ux)*dx(ux) + (dx(uy)+dy(ux))*(dx(uy)+dy(ux))
+                           + 2.0*dy(uy)*dy(uy)) + zetalm(heav(hr))*(dx(ux)+dy(uy))*(dx(ux)+dy(uy)));
+
+/* Calculate regularized gradient (not descent direction) of compliance */
+g0 = - zetamuprime(heav(hr))*heavprime(hr)*(2.0*dx(ux)*dx(ux) + (dx(uy)+dy(ux))*(dx(uy)+dy(ux))
+                 + 2.0*dy(uy)*dy(uy))
+     - zetalmprime(heav(hr))*heavprime(hr)*(dx(ux)+dy(uy))*(dx(ux)+dy(uy));
+
+sdreg;
+
+/* Save results */
+savesol(GRAD,Th,g);
+setrParam(EXCHFILE,"Compliance",cply);

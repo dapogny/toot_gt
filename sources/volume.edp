@@ -1,0 +1,37 @@
+/* Calculation of the volume of the input structure */
+include "./sources/inout.idp"
+include "./sources/macros.idp"
+load "medit"
+
+/* Get mesh and sol names, and global parameters */
+string MESH       = getsParam(EXCHFILE,"MeshName");
+string PHIR       = getsParam(EXCHFILE,"PhiRName");
+string GRAD       = getsParam(EXCHFILE,"VolGradName");
+
+/* Loading mesh */
+mesh Th = readmesh(MESH);
+
+/* Finite element spaces and functions */
+fespace Vh(Th,P1);
+fespace Vh0(Th,P0);
+Vh ux,uy,hr,g,v;
+
+/* Other parameters */
+real vol;
+
+/* Read density */
+loadsol(PHIR,hr[]);
+
+/* Regularization for the gradient */
+problem sdreg(g,v) = psreg(g,v)
+                      - int2d(Th)(heavprime(hr)*v);
+
+/* Calculate volume */
+vol = int2d(Th)(heav(hr));
+
+/* Calculate regularized gradient (not descent direction) of volume */
+sdreg;
+
+/* Save results */
+savesol(GRAD,Th,g);
+setrParam(EXCHFILE,"Volume",vol);

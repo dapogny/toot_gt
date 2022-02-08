@@ -1,0 +1,31 @@
+/* Update density function according to the descent direction */
+include "./sources/inout.idp"
+include "./sources/macros.idp"
+load "medit"
+
+/* Get mesh and sol names, and global parameters */
+string MESH       = getsParam(EXCHFILE,"MeshName");
+string PHI        = getsParam(EXCHFILE,"PhiName");
+string NPHI       = getsParam(EXCHFILE,"SolName");
+string GRAD       = getsParam(EXCHFILE,"GradName");
+int refdir        = getiParam(EXCHFILE,"Dirichlet");
+int refneu        = getiParam(EXCHFILE,"Neumann");
+real step         = getrParam(EXCHFILE,"TimeStep");
+
+/* Load mesh */
+mesh Th = readmesh(MESH);
+
+/* Finite element spaces and functions */
+fespace Vh(Th,P1);
+Vh g,h,hnew,v;
+
+/* Load non regularized density function and gradient */
+loadsol(PHI,h[]);
+loadsol(GRAD,g[]);
+
+hnew = h + step*g;
+hnew = max(hnew,0.0);
+hnew = min(hnew,1.0);
+
+/* Save solution */
+savesol(NPHI,Th,hnew);

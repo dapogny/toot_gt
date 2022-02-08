@@ -1,0 +1,32 @@
+/* Filtering of the density function via a Laplace-like equation */
+include "./sources/inout.idp"
+include "./sources/macros.idp"
+load "medit"
+
+/* Get mesh and sol names, and global parameters */
+string MESH       = getsParam(EXCHFILE,"MeshName");
+string PHI        = getsParam(EXCHFILE,"PhiName");
+string NPHI       = getsParam(EXCHFILE,"SolName");
+
+/* Load mesh, density and gradient */
+mesh Th = readmesh(MESH);
+
+/* Finite element spaces and functions */
+fespace Vh(Th,P1);
+Vh h,hr,v;
+
+/* Load density function */
+loadsol(PHI,h[]);
+
+/* Regularization of gradient */
+problem hregul(hr,v) = psreg(hr,v)
+                       - int2d(Th)(h*v);
+
+hregul;
+
+hr = max(hr,0.0);
+hr = min(hr,1.0);
+
+/* Save solution */
+savesol(NPHI,Th,hr);
+savesol("./res/box.sol",Th,heav(hr));

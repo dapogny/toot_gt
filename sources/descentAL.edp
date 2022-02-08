@@ -1,0 +1,38 @@
+/* Calculation of the descent direction according to the Augmented Lagrangian algo.
+   taking into account the different gradients */
+include "./sources/inout.idp"
+include "./sources/macros.idp"
+load "medit"
+
+/* Get mesh and sol names, and global parameters */
+string MESH       = getsParam(EXCHFILE,"MeshName");
+string GRAD       = getsParam(EXCHFILE,"GradName");
+string GRADV      = getsParam(EXCHFILE,"VolGradName");
+string GRADCP     = getsParam(EXCHFILE,"CpGradName");
+real vol          = getrParam(EXCHFILE,"Volume");
+real vtarg        = getrParam(EXCHFILE,"VolumeTarget");
+real lmo           = getrParam(EXCHFILE,"lmAL");
+real muo           = getrParam(EXCHFILE,"penAL");
+
+/* Loading mesh */
+mesh Th = readmesh(MESH);
+
+/* Finite element spaces and functions */
+fespace Vh(Th,P1);
+Vh g,gJ,gV;
+
+/* Other parameters */
+real EPS = 1.e-6;
+real gmax;
+
+/* Load gradients */
+loadsol(GRADV,gV[]);
+loadsol(GRADCP,gJ[]);
+
+/* Descent direction */
+g = - gJ + lmo * gV - muo * (vol-vtarg)*gV;
+gmax = max(-g[].min,g[].max);
+g = g / (EPS^2 + gmax);
+
+/* Save gradient */
+savesol(GRAD,Th,g);

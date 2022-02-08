@@ -1,0 +1,60 @@
+/* Calculation of the descent direction according to the Null Space optimization algo.
+   taking into account the different gradients */
+include "./sources/inout.idp"
+include "./sources/macros.idp"
+load "medit"
+
+/* Get mesh and sol names, and global parameters */
+string MESH       = getsParam(EXCHFILE,"MeshName");
+string GRAD       = getsParam(EXCHFILE,"GradName");
+string GRADV      = getsParam(EXCHFILE,"VolGradName");
+string GRADCP     = getsParam(EXCHFILE,"CpGradName");
+real vol          = getrParam(EXCHFILE,"Volume");
+real vtarg        = getrParam(EXCHFILE,"VolumeTarget");
+real AJ           = getrParam(EXCHFILE,"CoefficientObjective");
+real AG           = getrParam(EXCHFILE,"CoefficientConstraint");
+real maxNormXiJ   = getrParam(EXCHFILE,"MaxNormXiJ");
+
+/* Loading mesh */
+mesh Th = readmesh(MESH);
+
+/* Finite element spaces and functions */
+fespace Vh(Th,P1);
+Vh g,gJ,gV,v;
+Vh xiJ,xiG,normxiJ,normxiG;
+
+/* Other parameters */
+real EPS = 1.e-6;
+real maxxiJ,maxxiG,mMaxxiJ,alphaJ,alphaG;
+real m,ell;
+
+/* Load gradients */
+loadsol(GRADV,gV[]);
+loadsol(GRADCP,gJ[]);
+  
+/* Coefficients for the descent direction */
+m = psreg(gV,gV);
+ell = 1.0 / m * psreg(gJ,gV);
+  
+/* Contributions for the optimization algorithm */
+xiJ = gJ - ell*gV;
+xiG = 1.0/m*(vol-vtarg)*gV;
+  
+maxxiJ = max(-xiJ[].min,xiJ[].max);
+mMaxxiJ = max(maxxiJ,maxNormXiJ);
+maxxiG = max(-xiG[].min,xiG[].max);
+alphaJ = AJ / (EPS^2+mMaxxiJ);
+alphaG = AG / (EPS^2+maxxiG);
+
+/* Descent direction */
+g = - alphaJ*xiJ - alphaG*xiG;
+
+/* Save solution */
+savesol(GRAD,Th,g);
+
+/* Save coefficients for the merit function */
+setrParam(EXCHFILE,"Lagrange",ell);
+setrParam(EXCHFILE,"Penalty",m);
+setrParam(EXCHFILE,"alphaJ",alphaJ);
+setrParam(EXCHFILE,"alphaG",alphaG);
+setrParam(EXCHFILE,"NormXiJ",maxxiJ);
